@@ -208,7 +208,9 @@ def load_ui_config() -> dict[str, Any]:
                 data = json.loads(auth_file.read_text(encoding="utf-8"))
                 for key, val in data.items():
                     config[key] = val
-                if normalize_node_sources_input(config.get("node_sources")) == "vpngate,vpnbook" and not NODE_SOURCES_ENV:
+                # 允许从双源或三源旧配置自动平滑升级到四源配置
+                current_sources = normalize_node_sources_input(config.get("node_sources"))
+                if current_sources in ["vpngate,vpnbook", "vpngate,vpnbook,ipspeed"] and not NODE_SOURCES_ENV:
                     config["node_sources"] = DEFAULT_NODE_SOURCES
                     updated = True
             except Exception:
