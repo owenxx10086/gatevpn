@@ -1177,7 +1177,7 @@ ${YELLOW}是否需要自定义配置网页面板参数？${PLAIN}"
 say "  -> 当前端口: ${GREEN}${UI_PORT}${PLAIN}"
 say "  -> 当前账号: ${GREEN}${UI_USERNAME}${PLAIN}"
 say "  -> 当前安全后缀: ${GREEN}${SECRET_PATH}${PLAIN}"
-say "  -> 当前节点来源: ${GREEN}${NODE_SOURCES_INPUT:-vpngate,vpnbook,ipspeed}${PLAIN}"
+say "  -> 当前节点来源: ${GREEN}${NODE_SOURCES_INPUT:-vpngate,vpnbook,ipspeed,fdciabdul}${PLAIN}"
 say "  -> 当前拉取地区: ${GREEN}${TARGET_COUNTRIES_INPUT:-全部地区}${PLAIN}"
 say "  -> 当前自动IP类型: ${GREEN}${TARGET_IP_TYPES_INPUT:-residential}${PLAIN}"
 ask "是否现在配置端口/安全后缀/登录账号密码/拉取地区/IP类型？[y/N]: "
@@ -1232,7 +1232,7 @@ cfg = {
     'username': os.environ.get('UI_USERNAME') or 'admin',
     'password': os.environ.get('UI_PASSWORD') or 'admin',
     'target_countries': os.environ.get('TARGET_COUNTRIES_INPUT') or '',
-    'node_sources': os.environ.get('NODE_SOURCES_INPUT') or 'vpngate,vpnbook,ipspeed',
+   'node_sources': os.environ.get('NODE_SOURCES_INPUT') or 'vpngate,vpnbook,ipspeed,fdciabdul',
     'target_ip_types': os.environ.get('TARGET_IP_TYPES_INPUT') or 'residential',
 }
 with open(os.environ['AUTH_FILE'], 'w', encoding='utf-8') as f:
