@@ -842,32 +842,35 @@ def configure_credentials():
 
 def configure_source():
     cfg = load_ui_cfg()
-    current = cfg.get('node_sources', 'vpngate,vpnbook,ipspeed') or 'vpngate,vpnbook,ipspeed'
+    current = cfg.get('node_sources', 'vpngate,vpnbook,ipspeed,fdciabdul') or 'vpngate,vpnbook,ipspeed,fdciabdul'
     print("\033[H\033[J", end="")
     print("=======================================================")
     print("                    节点来源配置                       ")
     print("=======================================================")
     print(f"当前节点来源: {current}")
-    print("  [1] VPNGate + VPNBook + IPSpeed（推荐）")
-    print("  [2] VPNGate + IPSpeed")
-    print("  [3] VPNGate + VPNBook")
+    print("  [1] 四大聚合源全开（推荐）")
+    print("  [2] VPNGate + VPNBook + IPSpeed")
+    print("  [3] VPNGate + IPSpeed")
     print("  [4] 仅 VPNGate")
     print("  [5] 仅 VPNBook")
     print("  [6] 仅 IPSpeed")
-    print("  [7] 返回主菜单")
+    print("  [7] 仅 FDCIAbdul")
+    print("  [8] 返回主菜单")
     key = getch()
     if key == '1':
-        cfg['node_sources'] = 'vpngate,vpnbook,ipspeed'
+        cfg['node_sources'] = 'vpngate,vpnbook,ipspeed,fdciabdul'
     elif key == '2':
-        cfg['node_sources'] = 'vpngate,ipspeed'
+        cfg['node_sources'] = 'vpngate,vpnbook,ipspeed'
     elif key == '3':
-        cfg['node_sources'] = 'vpngate,vpnbook'
+        cfg['node_sources'] = 'vpngate,ipspeed'
     elif key == '4':
         cfg['node_sources'] = 'vpngate'
     elif key == '5':
         cfg['node_sources'] = 'vpnbook'
     elif key == '6':
         cfg['node_sources'] = 'ipspeed'
+    elif key == '7':
+        cfg['node_sources'] = 'fdciabdul'
     else:
         return
     save_ui_cfg(cfg)
