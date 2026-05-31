@@ -1607,6 +1607,120 @@ def fetch_ipspeed_candidates(target_countries: list[str], seen_keys: set[str]) -
         log_to_json("ERROR", "IPSpeed", f"IPSpeed 节点拉取失败: {exc}")
     return candidates
 
+def fdciabdul_row_to_node(row: dict[str, Any], config_text: str) -> dict[str, Any]:
+    ip = str(row.get("ip") or "")
+    country_long = str(row.get("country_long") or "Unknown")
+    country_short = str(canonical_country_code(country_long) or "XX")
+    country_short, country_zh = canonicalize_country_fields(country_short, country_long)
+    text = sanitize_openvpn_config_for_eianun(config_text)
+    remote_host, remote_port, proto = vpn_utils.parse_remote(text, ip)
+    
+    if not remote_host:
+        remote_host = ip
+    if not remote_port:
+        remote_port = 443
+        
+    node_id = safe_name("_".join(["FDCIABDUL", country_short, ip or remote_host, str(remote_port), proto or "ovpn"]))
+    config_path = CONFIG_DIR / f"{node_id}.ovpn"
+    
+    return {
+        "id": node_id,
+        "source": "fdciabdul",
+        "country": country_zh,
+        "country_short": country_short,
+        "host_name": ip,
+        "auth_user": OPENVPN_AUTH_USER,
+        "auth_pass": OPENVPN_AUTH_PASS,
+        "ip": ip,
+        "score": 0,
+        "ping": 0,
+        "speed": 0,
+        "sessions": 0,
+        "owner": "",
+        "asn": "",
+        "as_name": "",
+        "location": "",
+        "ip_type": "",
+        "quality": "",
+        "fraud_score": 0,
+        "clean_score": 0,
+        "risk_level": "unknown",
+        "fraud_flags": [],
+        "risk_sources": [],
+        "blacklist_hits": [],
+        "blacklist_count": 0,
+        "ip_clean": False,
+        "latency_ms": 0,
+        "config_file": str(config_path),
+        "config_text": text,
+        "proto": proto,
+        "remote_host": remote_host,
+        "remote_port": remote_port,
+        "fetched_at": time.time(),
+        "probe_status": "not_checked",
+        "probe_message": "FDCIABDUL source; config fetched from GitHub API",
+        "probed_at": 0,
+    }
+
+def fetch_fdciabdul_candidates(target_countries: list[str], seen_keys: set[str]) -> list[dict[str, Any]]:
+    candidates: list[dict[str, Any]] = []
+    target_display = normalize_target_countries_input(target_countries) or "全部地区"
+    # 调用 GitHub Contents API 获取目录树
+    api_url = "https://api.github.com/repos/fdciabdul/Vpngate-Scraper-API/contents/configs"
+    
+    try:
+        req = urllib.request.Request(api_url, headers={"User-Agent": "eianun-vpngate-manager/2.0"})
+        with urllib.request.urlopen(req, timeout=15) as response:
+            files_data = json.loads(response.read().decode("utf-8"))
+        
+        matched = 0
+        filtered = 0
+        for item in files_data:
+            if not isinstance(item, dict) or item.get("type") != "file" or not item.get("name", "").endswith(".ovpn"):
+                continue
+                
+            # 从文件名 Japan_119.243.197.80.ovpn 中拆分提取信息
+            name = item["name"][:-5]
+            parts = name.split("_")
+            country_guess = parts[0] if len(parts) > 1 else "Unknown"
+            ip_guess = parts[-1] if len(parts) > 1 else parts[0]
+            
+            # 使用现有引擎鉴别国家过滤策略
+            pseudo_row = {"CountryShort": "", "CountryLong": country_guess}
+            if not row_matches_target_countries(pseudo_row, target_countries):
+                filtered += 1
+                continue
+                
+            matched += 1
+            if matched > MAX_SCAN_ROWS:
+                break
+                
+            download_url = item.get("download_url")
+            if not download_url:
+                continue
+                
+            key = f"fdciabdul:{ip_guess}"
+            if key in seen_keys or ip_guess in seen_keys:
+                continue
+                
+            try:
+                text = http_get_bytes(download_url, timeout=18, accept="text/plain,*/*").decode("utf-8", errors="replace")
+                if not looks_like_openvpn_config(text):
+                    continue
+                    
+                node = fdciabdul_row_to_node({"country_long": country_guess, "ip": ip_guess}, text)
+                candidates.append(node)
+                seen_keys.add(key)
+                seen_keys.add(ip_guess)
+            except Exception as exc:
+                log_to_json("WARNING", "FDCIABDUL", f"下载 OpenVPN 配置失败 {ip_guess}: {exc}")
+                
+        log_to_json("INFO", "FDCIABDUL", f"FDCIABDUL 地区过滤 {target_display}: 匹配 {matched} 行，跳过 {filtered} 行，成功 {len(candidates)} 个")
+    except Exception as exc:
+        log_to_json("ERROR", "FDCIABDUL", f"FDCIABDUL 节点拉取失败: {exc}")
+        
+    return candidates
+    
 def fetch_candidates(target_override: list[str] | None = None) -> list[dict[str, Any]]:
     blacklist = load_blacklist()
     candidates: list[dict[str, Any]] = []
