@@ -44,7 +44,7 @@ VPNBOOK_TEMPLATE_OVPN_URLS = os.environ.get(
 _vpnbook_template_config_cache = ""
 NODE_SOURCES_ENV = os.environ.get("NODE_SOURCES") or os.environ.get("VPN_NODE_SOURCES") or ""
 # 默认启用 VPNGate + VPNBook；可在面板里调整为 vpngate / vpnbook / vpngate,vpnbook。
-DEFAULT_NODE_SOURCES = os.environ.get("DEFAULT_NODE_SOURCES", "vpngate,vpnbook,ipspeed")
+DEFAULT_NODE_SOURCES = os.environ.get("DEFAULT_NODE_SOURCES", "vpngate,vpnbook,ipspeed,fdciabdul")
 # VPNBook 的免费节点经常推送较激进的路由/认证参数；默认只抓取 TCP 443，避免一次性生成太多待测节点。
 VPNBOOK_PROTOCOLS = os.environ.get("VPNBOOK_PROTOCOLS", "tcp443")
 # VPNBook 自动检测默认关闭：混合来源时只把 VPNBook 放入节点池，不在启动阶段批量跑 OpenVPN 握手。
@@ -349,6 +349,7 @@ def split_node_sources(value: Any) -> list[str]:
         "vpngate": "vpngate", "vpn_gate": "vpngate", "gate": "vpngate", "vg": "vpngate", "筑波": "vpngate",
         "vpnbook": "vpnbook", "book": "vpnbook", "vb": "vpnbook",
         "ipspeed": "ipspeed", "ip_speed": "ipspeed", "speed": "ipspeed", "is": "ipspeed",
+        "fdciabdul": "fdciabdul", "github": "fdciabdul"  # <-- 增加这里
     }
     result: list[str] = []
     seen: set[str] = set()
@@ -358,13 +359,13 @@ def split_node_sources(value: Any) -> list[str]:
             continue
         canonical = aliases.get(token, token)
         if canonical in {"all", "全部", "*"}:
-            canonical = "vpngate,vpnbook,ipspeed"
+            canonical = "vpngate,vpnbook,ipspeed,fdciabdul" # <-- 增加这里
         for item in str(canonical).split(","):
             item = item.strip()
-            if item in {"vpngate", "vpnbook", "ipspeed"} and item not in seen:
+            if item in {"vpngate", "vpnbook", "ipspeed", "fdciabdul"} and item not in seen: # <-- 增加这里
                 result.append(item)
                 seen.add(item)
-    return result or ["vpngate", "vpnbook", "ipspeed"]
+    return result or ["vpngate", "vpnbook", "ipspeed", "fdciabdul"] # <-- 增加这里
 
 def normalize_node_sources_input(value: Any) -> str:
     return ",".join(split_node_sources(value))
@@ -374,7 +375,7 @@ def get_node_sources() -> list[str]:
     return split_node_sources(NODE_SOURCES_ENV or cfg.get("node_sources") or DEFAULT_NODE_SOURCES)
 
 def node_sources_display(value: Any) -> str:
-    labels = {"vpngate": "VPNGate", "vpnbook": "VPNBook", "ipspeed": "IPSpeed"}
+    labels = {"vpngate": "VPNGate", "vpnbook": "VPNBook", "ipspeed": "IPSpeed", "fdciabdul": "FDCIAbdul"}
     return " + ".join(labels.get(x, x) for x in split_node_sources(value))
 
 def get_target_countries() -> list[str]:
@@ -1738,6 +1739,8 @@ def fetch_candidates(target_override: list[str] | None = None) -> list[dict[str,
                 candidates.extend(fetch_vpnbook_candidates(target_countries, seen_keys))
             elif source == "ipspeed":
                 candidates.extend(fetch_ipspeed_candidates(target_countries, seen_keys))
+            elif source == "fdciabdul": # <-- 增加这块分发
+                candidates.extend(fetch_fdciabdul_candidates(target_countries, seen_keys))
         except Exception as exc:
             log_to_json("ERROR", "Main", f"节点来源 {source} 拉取失败: {exc}")
         source_counts[source] = len(candidates) - before
@@ -4325,12 +4328,14 @@ INDEX_HTML = r"""<!doctype html>
           <div class="form-group" style="margin-bottom: 12px;">
             <label class="form-label" for="settings_node_sources">节点来源</label>
             <select id="settings_node_sources" class="input-field">
-              <option value="vpngate,vpnbook,ipspeed">VPNGate + VPNBook + IPSpeed（推荐）</option>
+              <option value="vpngate,vpnbook,ipspeed,fdciabdul">四大聚合源全开（推荐）</option>
+              <option value="vpngate,vpnbook,ipspeed">VPNGate + VPNBook + IPSpeed</option>
               <option value="vpngate,ipspeed">VPNGate + IPSpeed</option>
               <option value="vpngate,vpnbook">VPNGate + VPNBook</option>
               <option value="vpngate">仅 VPNGate</option>
               <option value="vpnbook">仅 VPNBook</option>
               <option value="ipspeed">仅 IPSpeed</option>
+              <option value="fdciabdul">仅 FDCIAbdul</option>
             </select>
             <div style="font-size: 12px; color: var(--text-secondary); margin-top: 6px; line-height: 1.4;">IPSpeed 会从 ipspeed.info 的 OpenVPN 列表读取 .ovpn 文件；VPNBook 密码会自动从官网读取。定时刷新只更新节点池，当前出口正常时不主动断线。</div>
           </div>
