@@ -46,7 +46,7 @@ AUTH_FILE = DATA_DIR / "auth.json"
 
 # 核心抓取源 URL 定义
 API_URL = "https://www.vpngate.net/api/iphone/"
-API_URL_FALLBACK = "https://gate.hongloan81727.workers.dev/" # 筑波大学官方直连备用IP出口
+API_URL_FALLBACK = "https://gate.hongloan81727.workers.dev/" # 自建备用IP出口
 VPNBOOK_OPENVPN_URL = os.environ.get("VPNBOOK_OPENVPN_URL", "https://www.vpnbook.com/freevpn/openvpn")
 IPSPEED_OPENVPN_URL = os.environ.get("IPSPEED_OPENVPN_URL", "https://ipspeed.info/free-openvpn.php")
 
