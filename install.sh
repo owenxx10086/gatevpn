@@ -160,7 +160,7 @@ check_required_tools() {
     say "  -> Python: ${GREEN}${PYTHON_BIN}${PLAIN}"
 }
 
-DEFAULT_USER="illria"
+DEFAULT_USER="owenxx10086"
 DEFAULT_REPO="gatevpn"
 GITHUB_USER="${1:-$DEFAULT_USER}"
 GITHUB_REPO="${2:-$DEFAULT_REPO}"
