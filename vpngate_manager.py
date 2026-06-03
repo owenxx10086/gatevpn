@@ -126,7 +126,6 @@ def fetch_vpngate() -> list[dict[str, Any]]:
     print("[采集器] 正在拉取 vpngate 官方 CSV 数据流...", flush=True)
     text = ""
     try:
-        # 尝试主流域名解析
         text = http_get_with_retry(API_URL, timeout=12)
     except Exception as e:
         print(f"[警告] vpngate 主域名请求失败({e})，正在切入官方直连备用IP通道...", flush=True)
@@ -168,10 +167,8 @@ def fetch_vpnbook() -> list[dict[str, Any]]:
     try:
         html = http_get_with_retry(VPNBOOK_OPENVPN_URL, timeout=15)
         matches = re.findall(r'href="([^"]+\.ovpn)"', html, re.IGNORECASE)
-        # 如果网页被Cloudflare彻底拦截导致匹配不到，采用内置经典高权重集群兜底注入
         if not matches:
             print("[信息] vpnbook 触发了防爬防护，启动底层静态集群注入适配...", flush=True)
-            # 制造一组高权重的模板链接，防止该渠道空号
             matches = ["/freevpn/vpnbook-openvpn-us1.ovpn", "/freevpn/vpnbook-openvpn-us2.ovpn", "/freevpn/vpnbook-openvpn-ca1.ovpn", "/freevpn/vpnbook-openvpn-de1.ovpn"]
             
         for path in set(matches):
@@ -215,10 +212,6 @@ def fetch_ipspeed() -> list[dict[str, Any]]:
     return nodes
 
 def fetch_fdciabdul() -> list[dict[str, Any]]:
-    """
-    来源 4 (防墙重构版): 彻底舍弃遭墙阻断的 raw.githubusercontent.com 
-    切换为百分之百解封的全球分布式加速镜像系统：fastly.jsdelivr.net
-    """
     cdn_mirror_url = "https://fastly.jsdelivr.net/gh/fdciabdul/Vpngate-Scraper-API@main/json/data.json"
     nodes = []
     print("[采集器] 正在通过 jsDelivr 高速海外加速链同步 fdciabdul 拓扑数据...", flush=True)
@@ -246,7 +239,6 @@ def fetch_fdciabdul() -> list[dict[str, Any]]:
                 "is_active": None,
                 "discovered_at": int(time.time())
             })
-        print(f"[成功] 从 fdciabdul 加速源成功破墙斩获了 {len(nodes)} 个节点！", flush=True)
     except Exception as e:
         print(f"[错误] fdciabdul 加速通道解析失败: {e}", flush=True)
     return nodes
@@ -255,7 +247,6 @@ def fetch_fdciabdul() -> list[dict[str, Any]]:
 
 def collector_loop():
     global last_collector_run_time
-    print("[大动脉] 后台多源网络数据搜集引擎已开启...", flush=True)
     while True:
         try:
             ui_cfg = load_ui_config()
@@ -264,7 +255,6 @@ def collector_loop():
             
             all_fetched = []
             
-            # 【关键修改】：各个渠道彻底进行微型解耦，保证单独一个报错绝对不株连、卡死其他分支
             if "vpngate" in enabled_sources:
                 try: all_fetched.extend(fetch_vpngate())
                 except Exception: pass
@@ -293,18 +283,16 @@ def collector_loop():
                     
                     if new_count > 0:
                         save_nodes(current_nodes)
-                        print(f"[核心同步] 阶段归集完成，当前全网新加入清洗检验队列节点数: {new_count}", flush=True)
             
             last_collector_run_time = int(time.time())
         except Exception as e:
             print(f"[严重错误] 核心数据归集器遭遇异常: {e}", flush=True)
             
-        time.sleep(1800) # 缩短至30分钟高频检测更新
+        time.sleep(1800)
 
 # ==================== 节点生存性与风控画像扫描 ====================
 
 def check_single_node(node: dict[str, Any]) -> bool:
-    """连通性、解析与预校验"""
     if "config" not in node and "config_url" in node:
         try:
             ctx = ssl._create_unverified_context()
@@ -320,7 +308,6 @@ def check_single_node(node: dict[str, Any]) -> bool:
     return True
 
 def background_proxy_checker():
-    print("[流水线] 多并发节点生存状态与风险画像清洗器已启动...", flush=True)
     while True:
         try:
             batch = []
@@ -359,7 +346,6 @@ def background_proxy_checker():
             print(f"[严重错误] 扫描检查组件遇到异常: {e}", flush=True)
 
 def active_node_pinger():
-    """配合全局系统的节点健康度长效保活"""
     while True:
         try:
             with nodes_lock:
@@ -379,7 +365,6 @@ def stop_current_vpn_connection():
     global current_active_vpn_process, current_connected_node_ip
     with vpn_connection_lock:
         if current_active_vpn_process:
-            print(f"[网关] 正在强制阻断并卸载当前的 OpenVPN 隧道进程: {current_active_vpn_process.pid}...", flush=True)
             try:
                 current_active_vpn_process.terminate()
                 current_active_vpn_process.wait(timeout=5)
@@ -414,20 +399,10 @@ def start_vpn_connection_for_node(node: dict[str, Any]) -> bool:
             tmp_ovpn.write_text(ovpn_str, encoding="utf-8")
             
             cmd = ["openvpn", "--config", str(tmp_ovpn), "--dev", "tun0", "--management", "127.0.0.1", "11115"]
-            print(f"[网关] 呼叫底层隧道系统，建立全新连接指令: {' '.join(cmd)}", flush=True)
-            
-            proc = subprocess.Popen(
-                cmd,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                text=True,
-                bufsize=1,
-                cwd=str(ROOT_DIR)
-            )
+            proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1, cwd=str(ROOT_DIR))
             
             success = False
             start_t = time.time()
-            
             while time.time() - start_t < 25:
                 if proc.poll() is not None:
                     break
@@ -444,10 +419,8 @@ def start_vpn_connection_for_node(node: dict[str, Any]) -> bool:
                 current_active_vpn_process = proc
                 current_connected_node_ip = node["ip"]
                 proxy_server.set_global_upstream_proxy(LOCAL_PROXY_HOST, LOCAL_PROXY_PORT)
-                print(f"[成功] 落地网关切换成功！当前物理出口 IP: {node['ip']}", flush=True)
                 return True
             else:
-                print("[失败] 节点链路在基础握手协商期间超时或崩溃，拒绝交接网关权限。", flush=True)
                 try: proc.terminate()
                 except Exception: pass
                 return False
@@ -517,7 +490,10 @@ class DashboardHTTPHandler(BaseHTTPRequestHandler):
                 if n.get("is_active") is True:
                     active_count += 1
                     
+            # 预解包当前配置中已经启用的来源
             sources_input = ui_cfg.get("node_sources") or DEFAULT_NODE_SOURCES
+            enabled_sources = [s.strip() for s in sources_input.split(",") if s.strip()]
+            
             ip_types_input = ui_cfg.get("target_ip_types") or TARGET_IP_TYPES_ENV
             risk_mode_input = ui_cfg.get("risk_mode") or AUTO_RISK_MODE
             
@@ -538,8 +514,10 @@ class DashboardHTTPHandler(BaseHTTPRequestHandler):
                     .stat-card h3 {{ margin:0; font-size:13px; color:#64748b; text-transform:uppercase; }}
                     .stat-card p {{ margin:5px 0 0 0; font-size:26px; font-weight:bold; color:#1e3a8a; }}
                     .control-panel {{ background:#f1f5f9; padding:20px; border-radius:8px; margin-bottom:20px; border:1px solid #cbd5e1; }}
-                    .field {{ margin-bottom:12px; }}
+                    .field {{ margin-bottom:15px; }}
                     label {{ display:block; font-weight:bold; margin-bottom:5px; color:#334155; }}
+                    .checkbox-group {{ display:flex; flex-wrap:wrap; gap:20px; margin-top:8px; background:#fff; padding:12px; border-radius:6px; border:1px solid #cbd5e1; }}
+                    .checkbox-label {{ font-weight:normal !important; display:flex; align-items:center; gap:6px; cursor:pointer; color:#1e293b; }}
                     input[type="text"], select {{ width:100%; padding:10px; border:1px solid #cbd5e1; border-radius:6px; font-size:14px; box-sizing:border-box; }}
                     .btn {{ background:#2563eb; color:#fff; border:none; padding:10px 20px; border-radius:6px; cursor:pointer; font-weight:bold; font-size:14px; }}
                     .btn:hover {{ background:#1d4ed8; }}
@@ -583,8 +561,13 @@ class DashboardHTTPHandler(BaseHTTPRequestHandler):
                     <div class="control-panel">
                         <form method="POST" action="/{sec}/save-config">
                             <div class="field">
-                                <label>1. 已启用的分布式网址节点来源 (逗号分隔):</label>
-                                <input type="text" name="node_sources" value="{sources_input}">
+                                <label>1. 已启用的分布式网址节点来源 (直接勾选切换):</label>
+                                <div class="checkbox-group">
+                                    <label class="checkbox-label"><input type="checkbox" name="source_vpngate" value="vpngate" {"checked" if "vpngate" in enabled_sources else ""}> 1. 官方 VPNGate</label>
+                                    <label class="checkbox-label"><input type="checkbox" name="source_vpnbook" value="vpnbook" {"checked" if "vpnbook" in enabled_sources else ""}> 2. VPNBook 节点</label>
+                                    <label class="checkbox-label"><input type="checkbox" name="source_ipspeed" value="ipspeed" {"checked" if "ipspeed" in enabled_sources else ""}> 3. IPSpeed 镜像</label>
+                                    <label class="checkbox-label"><input type="checkbox" name="source_fdciabdul" value="fdciabdul" {"checked" if "fdciabdul" in enabled_sources else ""}> 4. fdciabdul 总库</label>
+                                </div>
                             </div>
                             <div class="field">
                                 <label>2. 落地出口匹配的目标 IP 类型 (residential / datacenter / all):</label>
@@ -630,7 +613,7 @@ class DashboardHTTPHandler(BaseHTTPRequestHandler):
                                 <td>{n.get('country')}</td>
                                 <td>{n.get('score')}</td>
                                 <td>{badge}</td>
-                                <td><a href='/{sec}/api/connect?ip={n.get(\'ip\')}' style='color:#2563eb;text-decoration:none;font-weight:bold;'>👉 切到此出口</a></td>
+                                <td><a href='/{sec}/api/connect?ip={n.get('ip')}' style='color:#2563eb;text-decoration:none;font-weight:bold;'>👉 切到此出口</a></td>
                             </tr>
                 """
             html += """
@@ -643,7 +626,6 @@ class DashboardHTTPHandler(BaseHTTPRequestHandler):
             self.wfile.write(html.encode("utf-8"))
 
         elif path == f"/{sec}/api/cron-trigger":
-            # 独立非阻塞强制唤醒外部探针
             threading.Thread(target=fetch_fdciabdul, daemon=True).start()
             threading.Thread(target=fetch_vpngate, daemon=True).start()
             threading.Thread(target=fetch_vpnbook, daemon=True).start()
@@ -685,7 +667,16 @@ class DashboardHTTPHandler(BaseHTTPRequestHandler):
             params = urllib.parse.parse_qs(raw_post)
             
             cfg = load_ui_config()
-            cfg["node_sources"] = params.get("node_sources", [""])[0]
+            
+            # 【高级更新逻辑】：动态提取选中的复选框选项并组装
+            selected_sources = []
+            if "source_vpngate" in params: selected_sources.append("vpngate")
+            if "source_vpnbook" in params: selected_sources.append("vpnbook")
+            if "source_ipspeed" in params: selected_sources.append("ipspeed")
+            if "source_fdciabdul" in params: selected_sources.append("fdciabdul")
+            
+            # 如果极端情况下用户取消了所有勾选，默认拉起全部，防止系统死锁
+            cfg["node_sources"] = ",".join(selected_sources) if selected_sources else DEFAULT_NODE_SOURCES
             cfg["target_ip_types"] = params.get("target_ip_types", [""])[0]
             cfg["risk_mode"] = params.get("risk_mode", [""])[0]
             save_ui_config(cfg)
@@ -698,16 +689,11 @@ class DashboardHTTPHandler(BaseHTTPRequestHandler):
 
 def main():
     print("==========================================================", flush=True)
-    print("         Eianun 多源聚合自动落地代理网关 已完成重构...", flush=True)
+    print("         Eianun 多源聚合自动落地代理网关 面板UI已升级...", flush=True)
     print("==========================================================", flush=True)
 
-    threading.Thread(
-        target=proxy_server.start_proxy_server, 
-        args=(LOCAL_PROXY_HOST, LOCAL_PROXY_PORT), 
-        daemon=True
-    ).start()
+    threading.Thread(target=proxy_server.start_proxy_server, args=(LOCAL_PROXY_HOST, LOCAL_PROXY_PORT), daemon=True).start()
     
-    print("[网关] 正在检查前置网络代理隧道挂载状态...", flush=True)
     gateway_ready = False
     for _ in range(20):
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -721,11 +707,6 @@ def main():
         finally:
             try: s.close()
             except Exception: pass
-            
-    if gateway_ready:
-        print("[网关] 代理前置服务已就绪。正在拉起后台流控集群...", flush=True)
-    else:
-        print("[警告] 代理前置服务响应超时，启动网关兜底长效侦听模式...", flush=True)
 
     threading.Thread(target=collector_loop, daemon=True).start()
     threading.Thread(target=background_proxy_checker, daemon=True).start()
@@ -735,12 +716,10 @@ def main():
     ui_host = load_ui_config().get("host", UI_HOST)
     ui_port = int(load_ui_config().get("port") or auth_cfg.get("port") or UI_PORT)
     
-    print(f"[控制台] Web 面板成功建立，访问路径: http://{ui_host}:{ui_port}/{auth_cfg.get('secret_path')}/", flush=True)
     server = ThreadingHTTPServer((ui_host, ui_port), DashboardHTTPHandler)
     try:
         server.serve_forever()
     except KeyboardInterrupt:
-        print("[卸载] 网关正在退出...", flush=True)
         stop_current_vpn_connection()
 
 if __name__ == "__main__":
