@@ -1671,6 +1671,61 @@ def fetch_fdciabdul_candidates(target_countries: list[str], seen_keys: set[str])
     # 调用 GitHub Contents API 获取目录树
     api_url = "https://api.github.com/repos/fdciabdul/Vpngate-Scraper-API/contents/configs"
     
+    def fetch_fdciabdul() -> list:
+    """
+    通过 GitHub Raw 链接直接获取 fdciabdul 整合的最新 VPNGate JSON 节点数据
+    """
+    url = "https://raw.githubusercontent.com/fdciabdul/Vpngate-Scraper-API/main/json/data.json"
+    nodes = []
+    print(f"[采集器] 正在从 fdciabdul (GitHub Raw) 异步拉取节点...", flush=True)
+    
+    try:
+        # 设置请求头模拟浏览器防止 GitHub 阻断
+        req = urllib.request.Request(
+            url, 
+            headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
+        )
+        with urllib.request.urlopen(req, timeout=20) as response:
+            if response.status != 200:
+                print(f"[警告] fdciabdul 接口请求失败，状态码: {response.status}", flush=True)
+                return []
+                
+            raw_data = response.read().decode('utf-8')
+            data_list = json.loads(raw_data)
+            
+            if not isinstance(data_list, list):
+                print("[警告] fdciabdul 返回的数据格式有误（非列表）", flush=True)
+                return []
+
+            for item in data_list:
+                ip = item.get("IP")
+                config_b64 = item.get("OpenVPN_ConfigData_Base64")
+                
+                # 过滤掉缺失关键字段的坏节点
+                if not ip or not config_b64:
+                    continue
+                
+                # 清理并对齐您主系统 nodes.json 所需的标准结构
+                node = {
+                    "source": "fdciabdul",
+                    "ip": ip,
+                    "hostname": item.get("HostName", ip),
+                    "country": item.get("CountryLong", "Unknown"),
+                    "ping": int(item.get("Ping", 9999)) if item.get("Ping") else 9999,
+                    "score": float(item.get("Score", 0)) if item.get("Score") else 0.0,
+                    "config": config_b64, # 直接传递该仓库提供的标准 Base64 字符串
+                    "is_active": True,
+                    "discovered_at": int(time.time())
+                }
+                nodes.append(node)
+                
+            print(f"[成功] 从 fdciabdul 成功加载并适配了 {len(nodes)} 个原始节点！", flush=True)
+            
+    except Exception as e:
+        print(f"[错误] 请求 fdciabdul 失败: {e}", flush=True)
+        
+    return nodes
+    
     try:
         req = urllib.request.Request(api_url, headers={"User-Agent": "eianun-vpngate-manager/2.0"})
         with urllib.request.urlopen(req, timeout=15) as response:
