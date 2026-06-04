@@ -34,7 +34,7 @@ socket.getaddrinfo = _ipv4_getaddrinfo
 import vpn_utils
 import proxy_server
 
-API_URL = "https://gate.vps99.eu.cc/"
+API_URL = "https://gate.aroot.ccwu.cc/"
 VPNBOOK_OPENVPN_URL = os.environ.get("VPNBOOK_OPENVPN_URL", "https://www.vpnbook.com/freevpn/openvpn")
 IPSPEED_OPENVPN_URL = os.environ.get("IPSPEED_OPENVPN_URL", "https://ipspeed.info/free-openvpn.php")
 VPNBOOK_TEMPLATE_OVPN_URLS = os.environ.get(
