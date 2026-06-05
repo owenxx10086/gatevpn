@@ -75,7 +75,7 @@ TARGET_COUNTRIES_ENV = os.environ.get("VPNGATE_TARGET_COUNTRIES") or os.environ.
 # strict   = 自动故障转移只选低风险干净 IP；没有干净节点就等待补充。
 # balanced = 默认模式，先选干净 IP；如果同地区全是高欺诈值/代理节点，则选择综合风险最低的可用节点兜底。
 # loose    = 自动故障转移只按连通性和延迟排序，风控仅作展示。
-MAX_AUTO_FRAUD_SCORE = int(os.environ.get("MAX_AUTO_FRAUD_SCORE", "25"))
+MAX_AUTO_FRAUD_SCORE = int(os.environ.get("MAX_AUTO_FRAUD_SCORE", "50"))
 AUTO_RISK_MODE = os.environ.get("AUTO_RISK_MODE", "balanced").strip().lower()
 if AUTO_RISK_MODE not in {"strict", "balanced", "loose"}:
     AUTO_RISK_MODE = "balanced"
